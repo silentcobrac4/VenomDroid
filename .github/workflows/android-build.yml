@@ -1,0 +1,64 @@
+name: Build VenomDroid APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Extract VenomDroid.zip
+        run: |
+          if [ -f "VenomDroid.zip" ]; then
+            unzip VenomDroid.zip -d extracted_project
+          else
+            echo "Error: VenomDroid.zip not found at repository root!"
+            exit 1
+          fi
+
+      - name: Locate Gradle Root and Make gradlew executable
+        run: |
+          cd extracted_project
+          # التعامل مع المجلد الرئيسي في حال وجود مجلد متداخل
+          if [ -d "VenomDroid" ]; then
+            cd VenomDroid
+          fi
+          chmod +x gradlew
+          echo "PROJECT_DIR=$(pwd)" >> $GITHUB_ENV
+
+      - name: Build Debug APK
+        run: |
+          cd ${{ env.PROJECT_DIR }}
+          ./gradlew assembleDebug
+
+      - name: Verify APK Output
+        run: |
+          cd ${{ env.PROJECT_DIR }}
+          find app/build/outputs/apk/debug -name "*.apk"
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VenomDroid-Debug-APK
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
+          
